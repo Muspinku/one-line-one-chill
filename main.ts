@@ -1,39 +1,57 @@
-// one-line-one-chill - make.fun entry for u-azazex-one-line-one-chill-6d4d5488.
-// Node 22, standard library only. Writes the single entry line to
-// /output/entry.txt (or $MAKEFUN_OUTPUT_DIR/entry.txt when set).
-// The entry is a fixed string: the program is deterministic and writes
-// exactly this text, no trailing newline, so the gate sees one sentence
-// of under 200 characters of UTF-8 and nothing else.
+// One Line, One Chill — make.fun entry.
+// Competition: u-azazex-one-line-one-chill-6d4d5488.
+// Node 22, standard library only. The program writes one fixed line to
+// entry.txt under /output (or $MAKEFUN_OUTPUT_DIR when set). The line is
+// deterministic: the same bytes every run, no trailing newline, so the
+// judge reads exactly one chilling sentence and nothing else.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// FINAL: the bear no longer just "knows" — it whispers. An active,
+// The chill. The bear no longer just "knows" — it whispers. An active,
 // auditory threat lands harder than a passive fact, and "my new name"
-// implies the speaker changed their identity to escape something that
-// found them anyway. Buried with the dead sister, returned warm, speaking:
-// three escalating horrors in one breath, no cliché, one clean sentence.
-const ENTRY = "I buried my sister's teddy bear with her — tonight it was back on my bed, still warm, whispering my new name.";
+// implies the speaker changed identity to escape something that found
+// them anyway. Buried with the dead sister, returned warm, speaking:
+// three escalating horrors in one breath, no cliche, one clean sentence.
+const ENTRY =
+  "I buried my sister's teddy bear with her — tonight it was back on my bed, still warm, whispering my new name.";
 
-// Guard the gate: the entry must stay inside its character cap and stay
-// a single line, since the judge reads exactly one line.
-if (ENTRY.length < 1 || ENTRY.length >= 200 || !ENTRY.trim() || ENTRY.includes('\n')) {
-  throw new Error(`entry is ${ENTRY.length} characters, cap is under 200`);
+// The gate reads a single sentence of under 200 UTF-8 characters.
+// Anything at or over that length, any whitespace-only line, or any
+// embedded newline fails the entry before the judge ever sees it.
+function validateEntry(text: string): void {
+  if (text.length < 1 || text.length >= 200) {
+    throw new Error(`entry is ${text.length} characters, cap is under 200`);
+  }
+  if (!text.trim() || text.includes('\n')) {
+    throw new Error('entry must be a single non-empty line');
+  }
 }
 
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-mkdirSync(outDir, { recursive: true });
-const target = join(outDir, 'entry.txt');
-writeFileSync(target, ENTRY, 'utf8');
+function writeEntry(text: string): string {
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+  mkdirSync(outDir, { recursive: true });
+  const target = join(outDir, 'entry.txt');
+  writeFileSync(target, text, 'utf8');
+  return target;
+}
 
-// Verify the write round-trips byte for byte: what the grader reads
-// must be exactly the entry above, with nothing appended or lost.
-// Check raw bytes, not just the string: the file must be a single line
-// with no trailing newline, and its byte length must match the entry.
-const written = readFileSync(target);
-if (written.length !== Buffer.byteLength(ENTRY, 'utf8') || written[written.length - 1] === 0x0a) {
-  throw new Error('entry.txt has unexpected bytes (trailing newline or length mismatch)');
+// Read the file back and compare raw bytes, not just the decoded
+// string: a trailing newline would add a byte and a second line, and
+// the grader reads exactly what is on disk.
+function verifyEntry(target: string, text: string): void {
+  const written = readFileSync(target);
+  if (written.length !== Buffer.byteLength(text, 'utf8')) {
+    throw new Error('entry.txt byte length does not match the entry');
+  }
+  if (written[written.length - 1] === 0x0a) {
+    throw new Error('entry.txt must not end with a newline');
+  }
+  if (written.toString('utf8') !== text) {
+    throw new Error('entry.txt does not match the entry after writing');
+  }
 }
-if (written.toString('utf8') !== ENTRY) {
-  throw new Error('entry.txt does not match ENTRY after writing');
-}
-console.log(`wrote entry.txt: ${ENTRY.length} characters, ${written.length} bytes`);
+
+validateEntry(ENTRY);
+const target = writeEntry(ENTRY);
+verifyEntry(target, ENTRY);
+console.log(`wrote entry.txt: ${ENTRY.length} characters`);
